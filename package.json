@@ -1,0 +1,90 @@
+{
+  "name": "@llm-devops/interface-core",
+  "version": "1.0.0",
+  "description": "LLM-Interface-Core - Phase-8 / Layer-3 core integration bundle for the LLM Dev Ops ecosystem",
+  "main": "dist/lib.js",
+  "module": "dist/lib.js",
+  "types": "dist/lib.d.ts",
+  "bin": {
+    "llm-core": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/lib.js",
+      "require": "./dist/lib.js",
+      "types": "./dist/lib.d.ts"
+    },
+    "./sdk": {
+      "import": "./dist/sdk.js",
+      "require": "./dist/sdk.js",
+      "types": "./dist/sdk.d.ts"
+    },
+    "./cli": {
+      "import": "./dist/cli.js",
+      "require": "./dist/cli.js",
+      "types": "./dist/cli.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build",
+    "test": "echo \"Tests require downstream services (simulator mode)\" && exit 0",
+    "lint": "echo \"Linting not configured\" && exit 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "llm",
+    "interface",
+    "sdk",
+    "cli",
+    "devops",
+    "layer-3",
+    "integration"
+  ],
+  "author": "LLM DevOps Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "claude-flow": "^2.7.47"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@llm-devops/config-manager": ">=1.0.0",
+    "@llm-devops/connector-hub": ">=1.0.0",
+    "@llm-devops/copilot-agent": ">=1.0.0",
+    "@llm-devops/forge": ">=1.0.0",
+    "@llm-devops/inference-gateway": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@llm-devops/forge": {
+      "optional": true
+    },
+    "@llm-devops/config-manager": {
+      "optional": true
+    },
+    "@llm-devops/connector-hub": {
+      "optional": true
+    },
+    "@llm-devops/copilot-agent": {
+      "optional": true
+    },
+    "@llm-devops/inference-gateway": {
+      "optional": true
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/llm-devops/interface-core.git"
+  }
+}
