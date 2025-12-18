@@ -26,6 +26,7 @@ export interface AdapterInterface {
 
 /**
  * Common configuration options for all adapters
+ * Note: Infrastructure concerns (retry, circuit breaker, etc.) are owned by downstream systems
  */
 export interface AdapterConfig {
   /**
@@ -39,22 +40,14 @@ export interface AdapterConfig {
   apiKey?: string;
 
   /**
-   * Request timeout in milliseconds
+   * Request timeout in milliseconds (passed to downstream)
    */
   timeout?: number;
 
   /**
-   * Enable debug logging
+   * Enable debug logging (for development only)
    */
   debug?: boolean;
-
-  /**
-   * Retry configuration
-   */
-  retry?: {
-    maxAttempts?: number;
-    backoff?: number;
-  };
 }
 
 // Re-export the main adapter interfaces from types/index.ts for compatibility

@@ -15,6 +15,7 @@
 
 /**
  * Main configuration for the Interface Core system
+ * Note: Infrastructure concerns (retry, logging, circuit breaker) are owned by downstream systems
  */
 export interface InterfaceCoreConfig {
   /** Unique identifier for this interface instance */
@@ -26,26 +27,12 @@ export interface InterfaceCoreConfig {
   /** Routing table configuration */
   routing: RoutingTable;
 
-  /** Timeout settings in milliseconds */
+  /** Timeout settings in milliseconds (passed to downstream) */
   timeouts: {
     inference: number;
     config: number;
     copilot: number;
     provider: number;
-  };
-
-  /** Retry policy configuration */
-  retryPolicy: {
-    maxRetries: number;
-    backoffMultiplier: number;
-    initialDelayMs: number;
-  };
-
-  /** Logging configuration */
-  logging: {
-    level: 'debug' | 'info' | 'warn' | 'error';
-    enableRequestLogging: boolean;
-    enableResponseLogging: boolean;
   };
 
   /** Optional metadata */
@@ -196,15 +183,11 @@ export interface ProviderRequest {
   /** Provider identifier (anthropic, openai, etc.) */
   providerId?: string;
 
-  /** Configuration for configure operation */
+  /** Configuration for configure operation (passed to downstream) */
   configuration?: {
     apiKey?: string;
     endpoint?: string;
     timeout?: number;
-    retryPolicy?: {
-      maxRetries: number;
-      backoffMultiplier: number;
-    };
     customHeaders?: Record<string, string>;
     customParams?: Record<string, unknown>;
   };
@@ -458,6 +441,7 @@ export type InterfaceResponse =
 
 /**
  * Downstream system endpoints
+ * Note: Infrastructure concerns (circuit breaker, rate limiting) are owned by downstream systems
  */
 export interface DownstreamEndpoint {
   /** System name */
@@ -469,17 +453,10 @@ export interface DownstreamEndpoint {
   /** Health check endpoint */
   healthEndpoint?: string;
 
-  /** Authentication configuration */
+  /** Authentication configuration (passed to downstream) */
   auth?: {
     type: 'bearer' | 'apikey' | 'oauth' | 'none';
     credentials?: string;
-  };
-
-  /** Circuit breaker configuration */
-  circuitBreaker?: {
-    enabled: boolean;
-    failureThreshold: number;
-    resetTimeoutMs: number;
   };
 
   /** Custom headers to include in requests */
@@ -513,14 +490,11 @@ export interface RoutingContext {
   /** Routing destination */
   destination: DownstreamEndpoint;
 
-  /** Correlation ID for tracing */
+  /** Correlation ID for tracing (passed through to downstream) */
   correlationId: string;
 
   /** Start timestamp */
   startTime: number;
-
-  /** Retry attempt number */
-  retryAttempt?: number;
 
   /** Additional metadata */
   metadata?: Record<string, unknown>;
@@ -595,8 +569,7 @@ export interface ConfigAdapter extends AdapterInterface<ConfigRequest, ConfigRes
 }
 
 export interface CoPilotAdapter extends AdapterInterface<CoPilotRequest, CoPilotResponse> {
-  /** Get cached suggestions if available */
-  getCachedSuggestions?(content: string): CoPilotResponse | null;
+  // Caching is handled by downstream LLM-CoPilot-Agent
 }
 
 export interface ProviderAdapter extends AdapterInterface<ProviderRequest, ProviderResponse> {
@@ -610,6 +583,7 @@ export interface ProviderAdapter extends AdapterInterface<ProviderRequest, Provi
 
 /**
  * Standard error codes for routing operations
+ * Note: Infrastructure error codes (circuit breaker, rate limit) are owned by downstream systems
  */
 export enum ErrorCode {
   // Request errors
@@ -622,16 +596,10 @@ export enum ErrorCode {
   DESTINATION_NOT_FOUND = 'DESTINATION_NOT_FOUND',
   ADAPTER_NOT_CONFIGURED = 'ADAPTER_NOT_CONFIGURED',
 
-  // Downstream errors
+  // Downstream errors (passed through from downstream systems)
   DOWNSTREAM_UNAVAILABLE = 'DOWNSTREAM_UNAVAILABLE',
   DOWNSTREAM_TIMEOUT = 'DOWNSTREAM_TIMEOUT',
   DOWNSTREAM_ERROR = 'DOWNSTREAM_ERROR',
-
-  // Circuit breaker
-  CIRCUIT_BREAKER_OPEN = 'CIRCUIT_BREAKER_OPEN',
-
-  // Rate limiting
-  RATE_LIMIT_EXCEEDED = 'RATE_LIMIT_EXCEEDED',
 
   // General errors
   INTERNAL_ERROR = 'INTERNAL_ERROR',
