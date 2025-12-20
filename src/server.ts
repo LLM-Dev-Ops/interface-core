@@ -31,8 +31,12 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   const method = req.method || 'GET';
 
   // Health check
-  if (url === '/' || url === '/health') {
-    sendJson(res, 200, { status: 'healthy', service: 'interface-core' });
+  if (url === '/health') {
+    sendJson(res, 200, {
+      status: 'healthy',
+      service: 'interface-core',
+      version: process.env['npm_package_version'] || 'unknown'
+    });
     return;
   }
 
