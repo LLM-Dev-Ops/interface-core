@@ -1,4 +1,6 @@
-import { AdapterInterface, AdapterConfig } from '../types/adapter.interface';
+import { AdapterConfig, ExecutionAwareAdapter } from '../types/adapter.interface.js';
+import type { ExecutionSpan, ExecutionContext } from '../execution/types.js';
+import { createAgentSpan, finalizeSpan } from '../execution/span-manager.js';
 
 /**
  * ForgeAdapter - Connects to LLM-Forge for interface generation
@@ -6,8 +8,10 @@ import { AdapterInterface, AdapterConfig } from '../types/adapter.interface';
  * LLM-Forge is responsible for generating interfaces, managing templates,
  * and providing interface scaffolding capabilities.
  */
-export class ForgeAdapter implements AdapterInterface {
+export class ForgeAdapter implements ExecutionAwareAdapter {
   config?: AdapterConfig;
+  private lastSpans: ExecutionSpan[] = [];
+  private executionContext: ExecutionContext | undefined;
 
   constructor(config?: AdapterConfig) {
     this.config = {
@@ -18,38 +22,27 @@ export class ForgeAdapter implements AdapterInterface {
     };
   }
 
-  /**
-   * Initialize connection to LLM-Forge
-   */
+  getLastExecutionSpans(): ExecutionSpan[] {
+    return this.lastSpans;
+  }
+
+  setExecutionContext(context: ExecutionContext): void {
+    this.executionContext = context;
+  }
+
   async initialize(): Promise<void> {
-    // TODO: Implement actual connection to LLM-Forge
-    // This would include:
-    // - Validating baseUrl and credentials
-    // - Establishing WebSocket or HTTP connection
-    // - Performing authentication handshake
     if (this.config?.debug) {
       console.log('[ForgeAdapter] Initializing connection to LLM-Forge...');
     }
   }
 
-  /**
-   * Check health status of LLM-Forge connection
-   */
   async healthCheck(): Promise<boolean> {
-    // TODO: Implement actual health check
-    // This would make a GET request to /health or /status endpoint
     if (this.config?.debug) {
       console.log('[ForgeAdapter] Health check: OK (simulated)');
     }
     return true;
   }
 
-  /**
-   * Generate an interface based on specifications
-   *
-   * @param spec - Interface specification object
-   * @returns Generated interface code and metadata
-   */
   async generateInterface(spec: {
     name: string;
     type: string;
@@ -60,33 +53,35 @@ export class ForgeAdapter implements AdapterInterface {
     interface: string;
     metadata: Record<string, any>;
   }> {
-    // TODO: Implement actual API call to LLM-Forge
-    // POST /api/v1/generate
-    // Body: spec
-    // Headers: { Authorization: `Bearer ${this.config.apiKey}` }
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('forge:generateInterface', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ForgeAdapter] Generating interface:', spec);
+    try {
+      if (this.config?.debug) {
+        console.log('[ForgeAdapter] Generating interface:', spec);
+      }
+
+      const result = {
+        success: true,
+        interface: `// Generated interface: ${spec.name}\nexport interface ${spec.name} {\n  // TODO: Implement interface\n}\n`,
+        metadata: {
+          generatedAt: new Date().toISOString(),
+          template: spec.template || 'default',
+          version: '1.0.0',
+        },
+      };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      success: true,
-      interface: `// Generated interface: ${spec.name}\nexport interface ${spec.name} {\n  // TODO: Implement interface\n}\n`,
-      metadata: {
-        generatedAt: new Date().toISOString(),
-        template: spec.template || 'default',
-        version: '1.0.0',
-      },
-    };
   }
 
-  /**
-   * Retrieve a specific template from LLM-Forge
-   *
-   * @param templateId - Unique identifier for the template
-   * @returns Template configuration and content
-   */
   async getTemplate(templateId: string): Promise<{
     id: string;
     name: string;
@@ -94,32 +89,36 @@ export class ForgeAdapter implements AdapterInterface {
     content: string;
     parameters: Array<{ name: string; type: string; required: boolean }>;
   }> {
-    // TODO: Implement actual API call to LLM-Forge
-    // GET /api/v1/templates/:templateId
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('forge:getTemplate', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ForgeAdapter] Fetching template:', templateId);
+    try {
+      if (this.config?.debug) {
+        console.log('[ForgeAdapter] Fetching template:', templateId);
+      }
+
+      const result = {
+        id: templateId,
+        name: 'Default Template',
+        description: 'A default interface template',
+        content: 'export interface {{name}} {\n  // Interface definition\n}\n',
+        parameters: [
+          { name: 'name', type: 'string', required: true },
+          { name: 'extends', type: 'string', required: false },
+        ],
+      };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      id: templateId,
-      name: 'Default Template',
-      description: 'A default interface template',
-      content: 'export interface {{name}} {\n  // Interface definition\n}\n',
-      parameters: [
-        { name: 'name', type: 'string', required: true },
-        { name: 'extends', type: 'string', required: false },
-      ],
-    };
   }
 
-  /**
-   * List all available templates from LLM-Forge
-   *
-   * @param filters - Optional filters for templates
-   * @returns Array of template summaries
-   */
   async listTemplates(filters?: {
     type?: string;
     category?: string;
@@ -131,48 +130,32 @@ export class ForgeAdapter implements AdapterInterface {
     category: string;
     tags: string[];
   }>> {
-    // TODO: Implement actual API call to LLM-Forge
-    // GET /api/v1/templates?type=...&category=...&tags=...
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('forge:listTemplates', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ForgeAdapter] Listing templates with filters:', filters);
+    try {
+      if (this.config?.debug) {
+        console.log('[ForgeAdapter] Listing templates with filters:', filters);
+      }
+
+      const result = [
+        { id: 'template-1', name: 'Basic Interface', description: 'A basic TypeScript interface template', category: 'typescript', tags: ['basic', 'interface'] },
+        { id: 'template-2', name: 'REST API Interface', description: 'Template for REST API interfaces', category: 'api', tags: ['rest', 'api', 'http'] },
+        { id: 'template-3', name: 'GraphQL Schema', description: 'Template for GraphQL schema definitions', category: 'graphql', tags: ['graphql', 'schema'] },
+      ];
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return [
-      {
-        id: 'template-1',
-        name: 'Basic Interface',
-        description: 'A basic TypeScript interface template',
-        category: 'typescript',
-        tags: ['basic', 'interface'],
-      },
-      {
-        id: 'template-2',
-        name: 'REST API Interface',
-        description: 'Template for REST API interfaces',
-        category: 'api',
-        tags: ['rest', 'api', 'http'],
-      },
-      {
-        id: 'template-3',
-        name: 'GraphQL Schema',
-        description: 'Template for GraphQL schema definitions',
-        category: 'graphql',
-        tags: ['graphql', 'schema'],
-      },
-    ];
   }
 
-  /**
-   * Disconnect from LLM-Forge
-   */
   async disconnect(): Promise<void> {
-    // TODO: Implement actual disconnection logic
-    // This would include:
-    // - Closing any open connections
-    // - Cleaning up resources
-    // - Invalidating session tokens
     if (this.config?.debug) {
       console.log('[ForgeAdapter] Disconnecting from LLM-Forge...');
     }

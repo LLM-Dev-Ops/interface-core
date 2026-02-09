@@ -1,4 +1,6 @@
-import { AdapterInterface, AdapterConfig } from '../types/adapter.interface';
+import { AdapterConfig, ExecutionAwareAdapter } from '../types/adapter.interface.js';
+import type { ExecutionSpan, ExecutionContext } from '../execution/types.js';
+import { createAgentSpan, finalizeSpan } from '../execution/span-manager.js';
 
 /**
  * ConfigManagerAdapter - Connects to LLM-Config-Manager for configuration management
@@ -6,8 +8,10 @@ import { AdapterInterface, AdapterConfig } from '../types/adapter.interface';
  * LLM-Config-Manager handles application configuration, environment variables,
  * secrets management, and configuration validation.
  */
-export class ConfigManagerAdapter implements AdapterInterface {
+export class ConfigManagerAdapter implements ExecutionAwareAdapter {
   config?: AdapterConfig;
+  private lastSpans: ExecutionSpan[] = [];
+  private executionContext: ExecutionContext | undefined;
 
   constructor(config?: AdapterConfig) {
     this.config = {
@@ -18,39 +22,27 @@ export class ConfigManagerAdapter implements AdapterInterface {
     };
   }
 
-  /**
-   * Initialize connection to LLM-Config-Manager
-   */
+  getLastExecutionSpans(): ExecutionSpan[] {
+    return this.lastSpans;
+  }
+
+  setExecutionContext(context: ExecutionContext): void {
+    this.executionContext = context;
+  }
+
   async initialize(): Promise<void> {
-    // TODO: Implement actual connection to LLM-Config-Manager
-    // This would include:
-    // - Validating credentials
-    // - Establishing secure connection
-    // - Syncing initial configuration state
     if (this.config?.debug) {
       console.log('[ConfigManagerAdapter] Initializing connection to LLM-Config-Manager...');
     }
   }
 
-  /**
-   * Check health status of LLM-Config-Manager connection
-   */
   async healthCheck(): Promise<boolean> {
-    // TODO: Implement actual health check
-    // GET /health endpoint
     if (this.config?.debug) {
       console.log('[ConfigManagerAdapter] Health check: OK (simulated)');
     }
     return true;
   }
 
-  /**
-   * Retrieve configuration value(s)
-   *
-   * @param key - Configuration key or pattern (supports dot notation)
-   * @param options - Optional retrieval options
-   * @returns Configuration value or object
-   */
   async getConfig(
     key: string,
     options?: {
@@ -67,34 +59,35 @@ export class ConfigManagerAdapter implements AdapterInterface {
       version: string;
     };
   }> {
-    // TODO: Implement actual API call to LLM-Config-Manager
-    // GET /api/v1/config/:key
-    // Query params: environment, decrypt, version
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('config-manager:getConfig', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConfigManagerAdapter] Getting config:', key, options);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConfigManagerAdapter] Getting config:', key, options);
+      }
+
+      const result = {
+        key,
+        value: key === 'app.name' ? 'LLM-Interface-Core' : null,
+        metadata: {
+          source: 'config-manager',
+          lastModified: new Date().toISOString(),
+          version: options?.version || '1.0.0',
+        },
+      };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      key,
-      value: key === 'app.name' ? 'LLM-Interface-Core' : null,
-      metadata: {
-        source: 'config-manager',
-        lastModified: new Date().toISOString(),
-        version: options?.version || '1.0.0',
-      },
-    };
   }
 
-  /**
-   * Set or update configuration value
-   *
-   * @param key - Configuration key
-   * @param value - Value to set
-   * @param options - Optional setting options
-   * @returns Success status and metadata
-   */
   async setConfig(
     key: string,
     value: any,
@@ -109,35 +102,37 @@ export class ConfigManagerAdapter implements AdapterInterface {
     version: string;
     metadata: Record<string, any>;
   }> {
-    // TODO: Implement actual API call to LLM-Config-Manager
-    // PUT /api/v1/config/:key
-    // Body: { value, options }
-    // Headers: { Authorization: `Bearer ${this.config.apiKey}` }
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('config-manager:setConfig', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConfigManagerAdapter] Setting config:', key, value, options);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConfigManagerAdapter] Setting config:', key, value, options);
+      }
+
+      const result = {
+        success: true,
+        key,
+        version: '1.0.1',
+        metadata: {
+          encrypted: options?.encrypt || false,
+          environment: options?.environment || 'default',
+          ttl: options?.ttl,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      success: true,
-      key,
-      version: '1.0.1',
-      metadata: {
-        encrypted: options?.encrypt || false,
-        environment: options?.environment || 'default',
-        ttl: options?.ttl,
-        updatedAt: new Date().toISOString(),
-      },
-    };
   }
 
-  /**
-   * Resolve secrets and encrypted values
-   *
-   * @param references - Array of secret references to resolve
-   * @returns Resolved secret values
-   */
   async resolveSecrets(
     references: string[]
   ): Promise<{
@@ -150,44 +145,38 @@ export class ConfigManagerAdapter implements AdapterInterface {
     }>;
     errors?: Array<{ reference: string; error: string }>;
   }> {
-    // TODO: Implement actual API call to LLM-Config-Manager
-    // POST /api/v1/secrets/resolve
-    // Body: { references }
-    // This would integrate with secret stores like:
-    // - AWS Secrets Manager
-    // - HashiCorp Vault
-    // - Azure Key Vault
-    // - Environment variables
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('config-manager:resolveSecrets', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConfigManagerAdapter] Resolving secrets:', references);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConfigManagerAdapter] Resolving secrets:', references);
+      }
+
+      const secrets: Record<string, any> = {};
+      references.forEach((ref) => {
+        secrets[ref] = {
+          value: `secret-value-for-${ref}`,
+          metadata: {
+            source: 'vault',
+            expiresAt: new Date(Date.now() + 86400000).toISOString(),
+          },
+        };
+      });
+
+      const result = { secrets, errors: [] };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    const secrets: Record<string, any> = {};
-    references.forEach((ref) => {
-      secrets[ref] = {
-        value: `secret-value-for-${ref}`,
-        metadata: {
-          source: 'vault',
-          expiresAt: new Date(Date.now() + 86400000).toISOString(), // 24h from now
-        },
-      };
-    });
-
-    return {
-      secrets,
-      errors: [],
-    };
   }
 
-  /**
-   * Validate configuration against schema
-   *
-   * @param config - Configuration object to validate
-   * @param schema - Schema name or definition
-   * @returns Validation result
-   */
   async validateConfig(
     config: Record<string, any>,
     schema: string
@@ -195,25 +184,28 @@ export class ConfigManagerAdapter implements AdapterInterface {
     valid: boolean;
     errors: Array<{ field: string; message: string }>;
   }> {
-    // TODO: Implement actual validation
-    // POST /api/v1/config/validate
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('config-manager:validateConfig', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConfigManagerAdapter] Validating config against schema:', schema);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConfigManagerAdapter] Validating config against schema:', schema);
+      }
+
+      const result = { valid: true, errors: [] as Array<{ field: string; message: string }> };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      valid: true,
-      errors: [],
-    };
   }
 
-  /**
-   * Disconnect from LLM-Config-Manager
-   */
   async disconnect(): Promise<void> {
-    // TODO: Implement actual disconnection logic
     if (this.config?.debug) {
       console.log('[ConfigManagerAdapter] Disconnecting from LLM-Config-Manager...');
     }

@@ -3,6 +3,7 @@
  *
  * Minimal HTTP server for Cloud Run deployment.
  * Exposes health check and SDK endpoints.
+ * Instrumented with execution spans for agentics-execution-engine.
  */
 
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
@@ -40,7 +41,7 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
-  // Inference endpoint
+  // Inference endpoint — returns execution graph in response body
   if (url === '/infer' && method === 'POST') {
     try {
       const body = await parseBody(req);
@@ -48,12 +49,16 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const response = await core.infer(request);
       sendJson(res, 200, response);
     } catch (err) {
-      sendJson(res, 500, { error: err instanceof Error ? err.message : 'Unknown error' });
+      const execution = (err as any)?._execution;
+      sendJson(res, 500, {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        _execution: execution ?? null,
+      });
     }
     return;
   }
 
-  // Assist endpoint
+  // Assist endpoint — returns execution graph in response body
   if (url === '/assist' && method === 'POST') {
     try {
       const body = await parseBody(req);
@@ -61,7 +66,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
       const response = await core.assist(query, options);
       sendJson(res, 200, response);
     } catch (err) {
-      sendJson(res, 500, { error: err instanceof Error ? err.message : 'Unknown error' });
+      const execution = (err as any)?._execution;
+      sendJson(res, 500, {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        _execution: execution ?? null,
+      });
     }
     return;
   }

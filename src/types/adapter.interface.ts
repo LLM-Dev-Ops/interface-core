@@ -1,3 +1,5 @@
+import type { ExecutionSpan, ExecutionContext } from '../execution/types.js';
+
 /**
  * Base interface that all adapters must implement
  * Provides common structure for connecting to downstream LLM systems
@@ -22,6 +24,24 @@ export interface AdapterInterface {
    * Cleanup and disconnect the adapter
    */
   disconnect?(): Promise<void>;
+}
+
+/**
+ * Adapter that participates in the execution span hierarchy.
+ * Must emit agent-level spans and make them retrievable.
+ */
+export interface ExecutionAwareAdapter extends AdapterInterface {
+  /**
+   * Retrieve the execution spans produced by the last operation.
+   * Spans are agent-level and must include valid parent_span_id references.
+   */
+  getLastExecutionSpans(): ExecutionSpan[];
+
+  /**
+   * Set the execution context for the next operation.
+   * The adapter uses this to correctly parent its agent spans.
+   */
+  setExecutionContext(context: ExecutionContext): void;
 }
 
 /**

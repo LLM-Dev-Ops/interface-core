@@ -28,3 +28,6 @@ export * from './services/index.js';
 
 // Re-export types
 export * from './types/index.js';
+
+// Re-export execution span infrastructure
+export * from './execution/index.js';

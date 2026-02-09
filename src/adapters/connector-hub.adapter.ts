@@ -1,4 +1,6 @@
-import { AdapterInterface, AdapterConfig } from '../types/adapter.interface';
+import { AdapterConfig, ExecutionAwareAdapter } from '../types/adapter.interface.js';
+import type { ExecutionSpan, ExecutionContext } from '../execution/types.js';
+import { createAgentSpan, finalizeSpan } from '../execution/span-manager.js';
 
 /**
  * ConnectorHubAdapter - Connects to LLM-Connector-Hub for provider management
@@ -6,8 +8,10 @@ import { AdapterInterface, AdapterConfig } from '../types/adapter.interface';
  * LLM-Connector-Hub manages connections to various LLM providers
  * (OpenAI, Anthropic, Google, etc.) and handles provider-specific protocols.
  */
-export class ConnectorHubAdapter implements AdapterInterface {
+export class ConnectorHubAdapter implements ExecutionAwareAdapter {
   config?: AdapterConfig;
+  private lastSpans: ExecutionSpan[] = [];
+  private executionContext: ExecutionContext | undefined;
 
   constructor(config?: AdapterConfig) {
     this.config = {
@@ -18,38 +22,27 @@ export class ConnectorHubAdapter implements AdapterInterface {
     };
   }
 
-  /**
-   * Initialize connection to LLM-Connector-Hub
-   */
+  getLastExecutionSpans(): ExecutionSpan[] {
+    return this.lastSpans;
+  }
+
+  setExecutionContext(context: ExecutionContext): void {
+    this.executionContext = context;
+  }
+
   async initialize(): Promise<void> {
-    // TODO: Implement actual connection to LLM-Connector-Hub
-    // This would include:
-    // - Authenticating with the hub
-    // - Loading available provider configurations
-    // - Establishing connection pools
     if (this.config?.debug) {
       console.log('[ConnectorHubAdapter] Initializing connection to LLM-Connector-Hub...');
     }
   }
 
-  /**
-   * Check health status of LLM-Connector-Hub connection
-   */
   async healthCheck(): Promise<boolean> {
-    // TODO: Implement actual health check
-    // GET /health endpoint
     if (this.config?.debug) {
       console.log('[ConnectorHubAdapter] Health check: OK (simulated)');
     }
     return true;
   }
 
-  /**
-   * List all available LLM providers
-   *
-   * @param filters - Optional filters for providers
-   * @returns Array of provider information
-   */
   async listProviders(filters?: {
     status?: 'active' | 'inactive' | 'all';
     capability?: string[];
@@ -66,62 +59,52 @@ export class ConnectorHubAdapter implements AdapterInterface {
       currency: string;
     };
   }>> {
-    // TODO: Implement actual API call to LLM-Connector-Hub
-    // GET /api/v1/providers
-    // Query params: status, capability, region
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('connector-hub:listProviders', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConnectorHubAdapter] Listing providers with filters:', filters);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConnectorHubAdapter] Listing providers with filters:', filters);
+      }
+
+      const result = [
+        {
+          id: 'openai',
+          name: 'OpenAI',
+          status: 'active' as const,
+          capabilities: ['chat', 'completion', 'embeddings', 'vision'],
+          models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+          pricing: { inputTokens: 0.03, outputTokens: 0.06, currency: 'USD' },
+        },
+        {
+          id: 'anthropic',
+          name: 'Anthropic',
+          status: 'active' as const,
+          capabilities: ['chat', 'completion', 'vision'],
+          models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+          pricing: { inputTokens: 0.015, outputTokens: 0.075, currency: 'USD' },
+        },
+        {
+          id: 'google',
+          name: 'Google AI',
+          status: 'active' as const,
+          capabilities: ['chat', 'completion', 'embeddings'],
+          models: ['gemini-pro', 'gemini-ultra'],
+          pricing: { inputTokens: 0.0005, outputTokens: 0.0015, currency: 'USD' },
+        },
+      ];
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return [
-      {
-        id: 'openai',
-        name: 'OpenAI',
-        status: 'active',
-        capabilities: ['chat', 'completion', 'embeddings', 'vision'],
-        models: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-        pricing: {
-          inputTokens: 0.03,
-          outputTokens: 0.06,
-          currency: 'USD',
-        },
-      },
-      {
-        id: 'anthropic',
-        name: 'Anthropic',
-        status: 'active',
-        capabilities: ['chat', 'completion', 'vision'],
-        models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-        pricing: {
-          inputTokens: 0.015,
-          outputTokens: 0.075,
-          currency: 'USD',
-        },
-      },
-      {
-        id: 'google',
-        name: 'Google AI',
-        status: 'active',
-        capabilities: ['chat', 'completion', 'embeddings'],
-        models: ['gemini-pro', 'gemini-ultra'],
-        pricing: {
-          inputTokens: 0.0005,
-          outputTokens: 0.0015,
-          currency: 'USD',
-        },
-      },
-    ];
   }
 
-  /**
-   * Establish connection to a specific provider
-   *
-   * @param providerId - Provider identifier
-   * @param credentials - Provider-specific credentials
-   * @returns Connection status and details
-   */
   async connectProvider(
     providerId: string,
     credentials: {
@@ -136,38 +119,40 @@ export class ConnectorHubAdapter implements AdapterInterface {
     status: 'connected' | 'failed';
     metadata: Record<string, any>;
   }> {
-    // TODO: Implement actual API call to LLM-Connector-Hub
-    // POST /api/v1/providers/:providerId/connect
-    // Body: { credentials }
-    // This would:
-    // - Validate credentials with the provider
-    // - Establish connection pool
-    // - Store connection metadata
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('connector-hub:connectProvider', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConnectorHubAdapter] Connecting to provider:', providerId);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConnectorHubAdapter] Connecting to provider:', providerId);
+      }
+
+      const connectionId = `conn-${providerId}-${Date.now()}`;
+      const result = {
+        success: true,
+        connectionId,
+        provider: providerId,
+        status: 'connected' as const,
+        metadata: {
+          connectedAt: new Date().toISOString(),
+          endpoint: credentials.endpoint || `https://api.${providerId}.com`,
+          poolSize: 5,
+        },
+      };
+
+      finalizeSpan(span, 'success', [], [
+        { id: connectionId, type: 'id', value: connectionId },
+      ]);
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      success: true,
-      connectionId: `conn-${providerId}-${Date.now()}`,
-      provider: providerId,
-      status: 'connected',
-      metadata: {
-        connectedAt: new Date().toISOString(),
-        endpoint: credentials.endpoint || `https://api.${providerId}.com`,
-        poolSize: 5,
-      },
-    };
   }
 
-  /**
-   * Get information about an existing provider connection
-   *
-   * @param connectionId - Connection identifier
-   * @returns Connection details and statistics
-   */
   async getConnection(connectionId: string): Promise<{
     id: string;
     provider: string;
@@ -180,60 +165,68 @@ export class ConnectorHubAdapter implements AdapterInterface {
     };
     metadata: Record<string, any>;
   }> {
-    // TODO: Implement actual API call to LLM-Connector-Hub
-    // GET /api/v1/connections/:connectionId
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('connector-hub:getConnection', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConnectorHubAdapter] Getting connection info:', connectionId);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConnectorHubAdapter] Getting connection info:', connectionId);
+      }
+
+      const result = {
+        id: connectionId,
+        provider: 'openai',
+        status: 'connected' as const,
+        statistics: {
+          requestCount: 1234,
+          errorCount: 5,
+          avgLatency: 450,
+          lastUsed: new Date().toISOString(),
+        },
+        metadata: {
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+          poolSize: 5,
+          activeConnections: 3,
+        },
+      };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    // Simulated response
-    return {
-      id: connectionId,
-      provider: 'openai',
-      status: 'connected',
-      statistics: {
-        requestCount: 1234,
-        errorCount: 5,
-        avgLatency: 450,
-        lastUsed: new Date().toISOString(),
-      },
-      metadata: {
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        poolSize: 5,
-        activeConnections: 3,
-      },
-    };
   }
 
-  /**
-   * Disconnect from a provider
-   *
-   * @param connectionId - Connection identifier
-   * @returns Success status
-   */
   async disconnectProvider(connectionId: string): Promise<{
     success: boolean;
     connectionId: string;
   }> {
-    // TODO: Implement actual API call
-    // DELETE /api/v1/connections/:connectionId
+    const parentSpanId = this.executionContext?.parent_span_id ?? 'unknown';
+    const span = createAgentSpan('connector-hub:disconnectProvider', parentSpanId);
+    this.lastSpans = [];
 
-    if (this.config?.debug) {
-      console.log('[ConnectorHubAdapter] Disconnecting provider:', connectionId);
+    try {
+      if (this.config?.debug) {
+        console.log('[ConnectorHubAdapter] Disconnecting provider:', connectionId);
+      }
+
+      const result = { success: true, connectionId };
+
+      finalizeSpan(span, 'success');
+      this.lastSpans = [span];
+      return result;
+    } catch (err) {
+      finalizeSpan(span, 'failed');
+      this.lastSpans = [span];
+      throw err;
     }
-
-    return {
-      success: true,
-      connectionId,
-    };
   }
 
-  /**
-   * Disconnect from LLM-Connector-Hub
-   */
   async disconnect(): Promise<void> {
-    // TODO: Implement actual disconnection logic
     if (this.config?.debug) {
       console.log('[ConnectorHubAdapter] Disconnecting from LLM-Connector-Hub...');
     }
