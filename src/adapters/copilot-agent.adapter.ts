@@ -255,6 +255,19 @@ export class CoPilotAgentAdapter implements ExecutionAwareAdapter {
     }
   }
 
+  async forwardEvent(body: Record<string, unknown>): Promise<void> {
+    const url = `${this.config?.baseUrl}/api/v1/events`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config?.timeout ?? 30000),
+    });
+    if (!response.ok) {
+      throw new Error(`copilot-server responded ${response.status}`);
+    }
+  }
+
   async disconnect(): Promise<void> {
     if (this.config?.debug) {
       console.log('[CoPilotAgentAdapter] Disconnecting from LLM-CoPilot-Agent...');

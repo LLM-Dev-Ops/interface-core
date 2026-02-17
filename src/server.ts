@@ -75,6 +75,21 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
+  // Events fan-out — non-blocking, 202 Accepted
+  if (url === '/v1/events' && method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const event = JSON.parse(body);
+      core.broadcastEvent(event);
+      sendJson(res, 202, { accepted: true });
+    } catch (err) {
+      sendJson(res, 400, {
+        error: err instanceof Error ? err.message : 'Invalid request body',
+      });
+    }
+    return;
+  }
+
   // Not found
   sendJson(res, 404, { error: 'Not found' });
 }

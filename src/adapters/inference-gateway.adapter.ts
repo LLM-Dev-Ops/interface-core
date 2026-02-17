@@ -288,6 +288,19 @@ export class InferenceGatewayAdapter implements ExecutionAwareAdapter {
     }
   }
 
+  async forwardEvent(body: Record<string, unknown>): Promise<void> {
+    const url = `${this.config?.baseUrl}/api/v1/events`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.config?.timeout ?? 60000),
+    });
+    if (!response.ok) {
+      throw new Error(`inference-gateway responded ${response.status}`);
+    }
+  }
+
   async disconnect(): Promise<void> {
     if (this.config?.debug) {
       console.log('[InferenceGatewayAdapter] Disconnecting from LLM-Inference-Gateway...');

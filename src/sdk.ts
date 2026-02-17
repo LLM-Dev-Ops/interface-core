@@ -480,6 +480,24 @@ export class InterfaceCore {
     return new ForgeClient(this.forgeAdapter);
   }
 
+  /**
+   * Fan-out an event to copilot-server, connector-hub, and inference-gateway.
+   * Fire-and-forget: failures are logged but never surface to the caller.
+   */
+  broadcastEvent(event: Record<string, unknown>): void {
+    Promise.allSettled([
+      this.assistAdapter.forwardEvent(event),
+      this.connectorAdapter.forwardEvent(event),
+      this.inferenceAdapter.forwardEvent(event),
+    ]).then((results) => {
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          console.error('[InterfaceCore] event broadcast failed:', r.reason);
+        }
+      }
+    });
+  }
+
   getConfig(): Readonly<InterfaceCoreConfig> {
     return Object.freeze({ ...this.config });
   }
