@@ -90,6 +90,31 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     return;
   }
 
+  // Interface event ingestion — leaf endpoint for fanout chain
+  if (url === '/v1/interface/event' && method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const event = JSON.parse(body);
+      const { source, event_type, execution_id, timestamp, payload } = event;
+
+      if (!source || !event_type || !execution_id) {
+        sendJson(res, 400, {
+          error: 'Missing required fields: source, event_type, execution_id',
+        });
+        return;
+      }
+
+      console.log(`[interface-event] source=${source} execution_id=${execution_id} event_type=${event_type}`);
+
+      sendJson(res, 202, { status: 'accepted', execution_id });
+    } catch (err) {
+      sendJson(res, 400, {
+        error: err instanceof Error ? err.message : 'Invalid request body',
+      });
+    }
+    return;
+  }
+
   // Not found
   sendJson(res, 404, { error: 'Not found' });
 }
