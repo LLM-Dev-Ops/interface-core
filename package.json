@@ -31,8 +31,8 @@
     "build:watch": "tsc --watch",
     "clean": "rm -rf dist",
     "prepare": "npm run build",
-    "test": "echo \"Tests require downstream services (simulator mode)\" && exit 0",
-    "lint": "echo \"Linting not configured\" && exit 0",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "lint": "npm run typecheck",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

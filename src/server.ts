@@ -6,125 +6,14 @@
  * Instrumented with execution spans for agentics-execution-engine.
  */
 
-import { createServer, IncomingMessage, ServerResponse } from 'node:http';
+import { createServer } from 'node:http';
 import { InterfaceCore } from './sdk.js';
+import { createHttpHandler } from './http.js';
 
 const PORT = parseInt(process.env['PORT'] || '8080', 10);
 
 const core = new InterfaceCore();
-
-function parseBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
-    req.on('end', () => resolve(body));
-    req.on('error', reject);
-  });
-}
-
-function sendJson(res: ServerResponse, status: number, data: unknown): void {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data));
-}
-
-async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const url = req.url || '/';
-  const method = req.method || 'GET';
-
-  // Health check
-  if (url === '/health') {
-    sendJson(res, 200, {
-      status: 'healthy',
-      service: 'interface-core',
-      version: process.env['npm_package_version'] || 'unknown'
-    });
-    return;
-  }
-
-  // Inference endpoint — returns execution graph in response body
-  if (url === '/infer' && method === 'POST') {
-    try {
-      const body = await parseBody(req);
-      const request = JSON.parse(body);
-      const response = await core.infer(request);
-      sendJson(res, 200, response);
-    } catch (err) {
-      const execution = (err as any)?._execution;
-      sendJson(res, 500, {
-        error: err instanceof Error ? err.message : 'Unknown error',
-        _execution: execution ?? null,
-      });
-    }
-    return;
-  }
-
-  // Assist endpoint — returns execution graph in response body
-  if (url === '/assist' && method === 'POST') {
-    try {
-      const body = await parseBody(req);
-      const { query, ...options } = JSON.parse(body);
-      const response = await core.assist(query, options);
-      sendJson(res, 200, response);
-    } catch (err) {
-      const execution = (err as any)?._execution;
-      sendJson(res, 500, {
-        error: err instanceof Error ? err.message : 'Unknown error',
-        _execution: execution ?? null,
-      });
-    }
-    return;
-  }
-
-  // Events fan-out — non-blocking, 202 Accepted
-  if (url === '/v1/events' && method === 'POST') {
-    try {
-      const body = await parseBody(req);
-      const event = JSON.parse(body);
-      core.broadcastEvent(event);
-      sendJson(res, 202, { accepted: true });
-    } catch (err) {
-      sendJson(res, 400, {
-        error: err instanceof Error ? err.message : 'Invalid request body',
-      });
-    }
-    return;
-  }
-
-  // Interface event ingestion — leaf endpoint for fanout chain
-  if (url === '/v1/interface/event' && method === 'POST') {
-    try {
-      const body = await parseBody(req);
-      const event = JSON.parse(body);
-      const { source, event_type, execution_id, timestamp, payload } = event;
-
-      if (!source || !event_type || !execution_id) {
-        sendJson(res, 400, {
-          error: 'Missing required fields: source, event_type, execution_id',
-        });
-        return;
-      }
-
-      console.log(`[interface-event] source=${source} execution_id=${execution_id} event_type=${event_type}`);
-
-      sendJson(res, 202, { status: 'accepted', execution_id });
-    } catch (err) {
-      sendJson(res, 400, {
-        error: err instanceof Error ? err.message : 'Invalid request body',
-      });
-    }
-    return;
-  }
-
-  // Not found
-  sendJson(res, 404, { error: 'Not found' });
-}
-
-const server = createServer((req, res) => {
-  handleRequest(req, res).catch((err) => {
-    console.error('Request error:', err);
-    sendJson(res, 500, { error: 'Internal server error' });
-  });
-});
+const server = createServer(createHttpHandler(core));
 
 server.listen(PORT, () => {
   console.log(`interface-core listening on port ${PORT}`);
